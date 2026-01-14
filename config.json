@@ -1,0 +1,21 @@
+{
+    "bh_hours": "89",
+    "bh_mins": "38",
+    "p1_hours": "175",
+    "p1_mins": "43",
+    "p2_hours": "158",
+    "p2_mins": "37",
+    "normal_rate": "120.0",
+    "ot_rate": "300.00",
+    "super_ot_rate": "420.00",
+    "base_salary": "16000.0",
+    "position_allowance": "1000.0",
+    "transport_rate": "700.0",
+    "transport_trips": "6",
+    "withdrawal_currency": "USD",
+    "cathay_rate": "31.66",
+    "superrich_rate_usd": "31.47",
+    "superrich_rate_twd": "0.99",
+    "per_diem_euro_mult": "4.0",
+    "per_diem_other_mult": "3.5"
+}
