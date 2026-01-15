@@ -1,4 +1,4 @@
-﻿altair==6.0.0
+altair==6.0.0
 altgraph==0.17.4
 anyio==4.12.1
 asttokens==2.4.1
