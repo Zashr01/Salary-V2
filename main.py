@@ -418,11 +418,11 @@ def main(page: ft.Page):
         label="Withdrawal Currency",
         value=str(get_setting("withdrawal_currency")),
         options=[ft.dropdown.Option("USD"), ft.dropdown.Option("TWD")],
-        on_change=calculate,
         border_radius=12,
         filled=True,
         expand=True
     )
+    dd_currency.on_change = calculate
     refs["withdrawal_currency"] = dd_currency
 
     currency_card = ft.Card(
