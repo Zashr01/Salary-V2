@@ -34,13 +34,19 @@ def main(page: ft.Page):
     # --- Persistence Logic (Client Side) ---
     # Requires FLET_SECRET_KEY to be set in environment variables!
     def get_setting(key):
-        if page.client_storage.contains_key(key):
-            val = page.client_storage.get(key)
-            return val
+        try:
+            if page.client_storage.contains_key(key):
+                val = page.client_storage.get(key)
+                return val
+        except Exception as e:
+            print(f"Storage Error (get {key}): {e}")
         return DEFAULT_VALUES.get(key)
 
     def save_setting(key, value):
-        page.client_storage.set(key, value)
+        try:
+            page.client_storage.set(key, value)
+        except Exception as e:
+            print(f"Storage Error (set {key}): {e}")
 
     # 1. Page Configuration
     page.title = "Salary App (Premium)"
