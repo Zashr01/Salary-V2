@@ -5,7 +5,7 @@ import os
 import requests # Added for API
 
 # --- Configuration & Constants ---
-CONFIG_FILE = "config.json"
+# --- Configuration & Constants ---
 DEFAULT_VALUES = {
     "exchange_rate": 1.0,
     "normal_rate": 120.0,
@@ -29,31 +29,18 @@ DEFAULT_VALUES = {
     "transport_trips": 6
 }
 
-# --- Persistence Logic ---
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
-
-app_config = load_config()
-
-def get_setting(key):
-    return app_config.get(key) or DEFAULT_VALUES.get(key)
-
-def save_setting(key, value):
-    app_config[key] = value
-    try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(app_config, f, indent=4)
-    except Exception as e:
-        print(f"Error saving config: {e}")
-
 # --- Main App ---
 def main(page: ft.Page):
+    # --- Persistence Logic (Client Side) ---
+    def get_setting(key):
+        if page.client_storage.contains_key(key):
+            val = page.client_storage.get(key)
+            return val
+        return DEFAULT_VALUES.get(key)
+
+    def save_setting(key, value):
+        page.client_storage.set(key, value)
+
     # 1. Page Configuration
     page.title = "Salary App (Premium)"
     page.theme_mode = ft.ThemeMode.LIGHT
