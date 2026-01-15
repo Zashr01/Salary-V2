@@ -396,6 +396,6 @@ if __name__ == "__main__":
     # Check if running in a container/server (Environment variable PORT is usually set)
     env_port = os.getenv("PORT")
     if env_port:
-        ft.app(target=main, view=ft.WEB_BROWSER, port=int(env_port))
+        ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=int(env_port))
     else:
         ft.app(target=main)
