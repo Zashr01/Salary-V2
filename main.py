@@ -2,9 +2,8 @@ import flet as ft
 import math
 import json
 import os
-import requests # Added for API
+import requests
 
-# --- Configuration & Constants ---
 # --- Configuration & Constants ---
 DEFAULT_VALUES = {
     "exchange_rate": 1.0,
@@ -29,82 +28,79 @@ DEFAULT_VALUES = {
     "transport_trips": 6
 }
 
+USER_DATA_DIR = "user_data"
+if not os.path.exists(USER_DATA_DIR):
+    os.makedirs(USER_DATA_DIR)
+
 # --- Main App ---
 def main(page: ft.Page):
-    # --- Persistence Logic (Client Side) ---
-    # Requires FLET_SECRET_KEY to be set in environment variables!
-    def get_setting(key):
-        try:
-            if page.client_storage.contains_key(key):
-                val = page.client_storage.get(key)
-                return val
-        except Exception as e:
-            print(f"Storage Error (get {key}): {e}")
-        return DEFAULT_VALUES.get(key)
-
-    def save_setting(key, value):
-        try:
-            page.client_storage.set(key, value)
-        except Exception as e:
-            print(f"Storage Error (set {key}): {e}")
-
-    # 1. Page Configuration
-    page.title = "Salary App (Premium)"
+    # 1. Page Config
+    page.title = "Salary App (Pro)"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.scroll = ft.ScrollMode.ADAPTIVE
-    page.padding = 0  # handling padding in containers
+    page.padding = 0
     page.bgcolor = ft.Colors.GREY_50
+    page.theme = ft.Theme(color_scheme_seed=ft.Colors.TEAL, font_family="Roboto")
+
+    # --- State ---
+    # Current user session state (in memory)
+    current_user = {
+        "is_logged_in": False,
+        "username": None,
+        "data": DEFAULT_VALUES.copy() 
+    }
     
-    # Theme Setup
-    page.theme = ft.Theme(
-        color_scheme_seed=ft.Colors.TEAL, # Softer look
-        visual_density=ft.VisualDensity.COMFORTABLE,
-        font_family="Roboto"
-    )
-
-    def toggle_theme(e):
-        page.theme_mode = ft.ThemeMode.DARK if page.theme_mode == ft.ThemeMode.LIGHT else ft.ThemeMode.LIGHT
-        e.control.icon = ft.Icons.DARK_MODE if page.theme_mode == ft.ThemeMode.LIGHT else ft.Icons.LIGHT_MODE
-        page.update()
-
-    page.appbar = ft.AppBar(
-        title=ft.Text("Salary App (Premium)"),
-        center_title=True,
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-        actions=[
-            ft.IconButton(ft.Icons.DARK_MODE, on_click=toggle_theme)
-        ]
-    )
-
-    # --- State & Refs ---
+    # Store UI component references to update them later
     refs = {}
 
-    # Result Controls
+    # --- Persistence Helpers ---
+    def get_user_file(username):
+        return os.path.join(USER_DATA_DIR, f"user_{username}.json")
+
+    def save_current_profile():
+        if current_user["is_logged_in"] and current_user["username"]:
+            filepath = get_user_file(current_user["username"])
+            try:
+                with open(filepath, "w") as f:
+                    # Save both PIN (should be hashed in real app, but plain for now) and Data
+                    json.dump(current_user, f, indent=4)
+            except Exception as e:
+                print(f"Save Error: {e}")
+
+    def get_setting(key):
+        return current_user["data"].get(key, DEFAULT_VALUES.get(key))
+
+    def save_setting(key, value):
+        current_user["data"][key] = value
+        # Auto-save to file if logged in
+        if current_user["is_logged_in"]:
+            save_current_profile()
+
+    # --- Calculation Logic ---
     txt_result_total = ft.Text("0.00 THB", size=40, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
     txt_breakdown = ft.Column(spacing=2)
 
-    # --- Calculation Logic ---
     def calculate(e=None):
         try:
             # Helper to safely float
             def val(key):
-                v = refs[key].value
-                return float(v) if v else 0.0
+                if key in refs and refs[key].value:
+                     return float(refs[key].value)
+                return 0.0
 
-            # 1. Get Values
-            bh_hours = val("bh_hours")
-            bh_mins = val("bh_mins")
+            # Get Values direct from UI or State
+            # Note: We update state from UI changes below
+            
             p1_hours = val("p1_hours")
             p1_mins = val("p1_mins")
             p2_hours = val("p2_hours")
             p2_mins = val("p2_mins")
 
             normal_rate = val("normal_rate")
-            # Enforce 2.5x and 3.5x
             ot_rate = normal_rate * 2.5
             super_ot_rate = normal_rate * 3.5
             
-            # Update read-only fields for visibility
+            # Update read-only fields
             if "ot_rate" in refs: refs["ot_rate"].value = f"{ot_rate:.2f}"
             if "super_ot_rate" in refs: refs["super_ot_rate"].value = f"{super_ot_rate:.2f}"
             
@@ -119,15 +115,15 @@ def main(page: ft.Page):
             
             cathay_rate = val("cathay_rate")
             
-            # Select conversion rate
             withdraw_currency = refs["withdrawal_currency"].value
             if withdraw_currency == "USD":
                 superrich_rate = val("superrich_rate_usd")
             else:
                 superrich_rate = val("superrich_rate_twd")
 
-            # 2. Logic
-            # Block Hours
+            # Logic
+            bh_hours = val("bh_hours")
+            bh_mins = val("bh_mins")
             total_bh = bh_hours + (bh_mins / 60.0)
             bh_normal_hrs = min(total_bh, 70)
             bh_ot_hrs = max(min(total_bh - 70, 10), 0)
@@ -141,27 +137,21 @@ def main(page: ft.Page):
             # Per Diem
             p1_total = p1_hours + (p1_mins / 60.0)
             p2_total = p2_hours + (p2_mins / 60.0)
-            total_per_diem_units = (per_diem_euro_mult * p1_total) + (per_diem_other_mult * p2_total)
-            per_diem_base_usd = total_per_diem_units
-
-            # Conversion
+            holding_amount = (per_diem_euro_mult * p1_total) + (per_diem_other_mult * p2_total)
+            
             if withdraw_currency == "TWD":
-                holding_amount = per_diem_base_usd * cathay_rate
-                per_diem_thb = holding_amount * superrich_rate
+                 # Logic for TWD conversion if needed, simplified here based on previous code
+                 # Previous code: holding (USD units) * cathay -> TWD. Then TWD * superrich -> THB
+                 per_diem_thb = (holding_amount * cathay_rate) * superrich_rate
             else:
-                holding_amount = per_diem_base_usd
-                per_diem_thb = holding_amount * superrich_rate
+                 per_diem_thb = holding_amount * superrich_rate
 
-            # Other
             transport_income = transport_trips * transport_rate
-
-            # Total
             grand_total_thb = total_bh_income + per_diem_thb + base_salary + position_allowance + transport_income
 
-            # 3. Update UI
+            # Update UI
             txt_result_total.value = f"{grand_total_thb:,.2f} THB"
             
-            # Styles for breakdown
             def breakdown_row(label, val_str, color=ft.Colors.WHITE):
                 return ft.Row([
                     ft.Text(label, color=color, size=14),
@@ -170,73 +160,29 @@ def main(page: ft.Page):
 
             txt_breakdown.controls = [
                 breakdown_row("Block Hours Income", f"{total_bh_income:,.2f}"),
-                breakdown_row(f"Per Diem ({withdraw_currency})", f"{holding_amount:,.2f}"),
-                breakdown_row("Per Diem (Converted)", f"{per_diem_thb:,.2f}"),
+                breakdown_row(f"Per Diem Base", f"{holding_amount:,.2f}"),
+                breakdown_row("Per Diem (THB)", f"{per_diem_thb:,.2f}"),
                 breakdown_row("Base + Allowance", f"{base_salary + position_allowance:,.2f}"),
                 breakdown_row("Transport", f"{transport_income:,.2f}"),
             ]
             page.update()
             
-            # 4. Save
+            # Update Persistence State
             for k, ref in refs.items():
-                if ref.value is not None:
-                     save_setting(k, ref.value)
+                if isinstance(ref, ft.TextField):
+                    save_setting(k, ref.value)
+                elif isinstance(ref, ft.Dropdown):
+                    save_setting(k, ref.value)
 
         except Exception as ex:
             print(f"Calc Error: {ex}")
 
-    # --- API Logic ---
-    def fetch_rates(e):
-        try:
-            # disable button to show loading?
-            e.control.disabled = True
-            page.update()
-            
-            url = "https://open.er-api.com/v6/latest/USD"
-            resp = requests.get(url, timeout=5)
-            data = resp.json()
-            
-            if data.get("result") == "success":
-                rates = data["rates"]
-                usd_thb = rates.get("THB", 0)
-                usd_twd = rates.get("TWD", 0)
-                
-                if usd_thb and usd_twd:
-                    # Update Refs
-                    refs["superrich_rate_usd"].value = f"{usd_thb:.2f}"
-                    refs["cathay_rate"].value = f"{usd_twd:.2f}"
-                    
-                    # Calculate TWD -> THB (Cross rate)
-                    twd_thb = usd_thb / usd_twd
-                    refs["superrich_rate_twd"].value = f"{twd_thb:.2f}"
-                    
-                    page.snack_bar = ft.SnackBar(ft.Text("Rates updated successfully!"), bgcolor=ft.Colors.GREEN)
-                    page.snack_bar.open = True
-                    page.update()
-                    calculate() # Recalculate totals
-                else:
-                     page.snack_bar = ft.SnackBar(ft.Text("Could not find THB/TWD in API response."), bgcolor=ft.Colors.RED)
-                     page.snack_bar.open = True
-                     page.update()
-            else:
-                page.snack_bar = ft.SnackBar(ft.Text("API Error: " + data.get("result", "Unknown")), bgcolor=ft.Colors.RED)
-                page.snack_bar.open = True
-                page.update()
-                
-        except Exception as ex:
-            page.snack_bar = ft.SnackBar(ft.Text(f"Connection Error: {ex}"), bgcolor=ft.Colors.RED)
-            page.snack_bar.open = True
-            page.update()
-        finally:
-            e.control.disabled = False
-            page.update()
-
-    # --- UI Helpers ---
+    # --- UI Components ---
     def create_input(label, key, icon=None, numeric=True, expand=True, read_only=False):
-        val = get_setting(key)
+        val = str(get_setting(key))
         field = ft.TextField(
             label=label,
-            value=str(val),
+            value=val,
             keyboard_type=ft.KeyboardType.NUMBER if numeric else ft.KeyboardType.TEXT,
             on_change=calculate,
             expand=expand,
@@ -251,9 +197,163 @@ def main(page: ft.Page):
         refs[key] = field
         return field
 
-    # --- Layout Construction ---
+    # --- Login System ---
+    def show_login_dialog(e):
+        dlg_username = ft.TextField(label="Username", autofocus=True)
+        dlg_pin = ft.TextField(label="PIN (4 digits)", password=True, max_length=4, keyboard_type=ft.KeyboardType.NUMBER)
+        
+        def close_dlg(e):
+            login_dialog.open = False
+            page.update()
 
-    # 1. Hero Result Section
+        def handle_login(e):
+            username = dlg_username.value.strip()
+            pin = dlg_pin.value.strip()
+            
+            if not username or not pin:
+                page.snack_bar = ft.SnackBar(ft.Text("Please enter both Username and PIN"), bgcolor=ft.Colors.RED)
+                page.snack_bar.open = True
+                page.update()
+                return
+
+            filepath = get_user_file(username)
+            if os.path.exists(filepath):
+                # Login Existing
+                try:
+                    with open(filepath, "r") as f:
+                        saved_user = json.load(f)
+                    if saved_user.get("pin") == pin:
+                        # Success
+                        current_user.update(saved_user)
+                        current_user["is_logged_in"] = True
+                        current_user["username"] = username
+                        
+                        # Refresh UI
+                        for k, ref in refs.items():
+                            if k in current_user["data"]:
+                                ref.value = str(current_user["data"][k])
+                        calculate()
+                        
+                        page.snack_bar = ft.SnackBar(ft.Text(f"Welcome back, {username}!"), bgcolor=ft.Colors.GREEN)
+                        login_btn.text = f"User: {username}"
+                        login_dialog.open = False
+                    else:
+                        page.snack_bar = ft.SnackBar(ft.Text("Wrong PIN! Access Denied."), bgcolor=ft.Colors.RED)
+                except Exception as ex:
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Corrupt Profile: {ex}"), bgcolor=ft.Colors.RED)
+            else:
+                # Register New
+                current_user["username"] = username
+                current_user["pin"] = pin
+                current_user["is_logged_in"] = True
+                current_user["data"] = DEFAULT_VALUES.copy() # Start fresh or keep current? Let's start default.
+                
+                save_current_profile()
+                
+                # Refresh UI (reset to defaults for new user)
+                for k, ref in refs.items():
+                    val = current_user["data"].get(k, DEFAULT_VALUES.get(k))
+                    ref.value = str(val)
+                calculate()
+                
+                page.snack_bar = ft.SnackBar(ft.Text(f"Profile Created: {username}"), bgcolor=ft.Colors.GREEN)
+                login_btn.text = f"User: {username}"
+                login_dialog.open = False
+            
+            page.snack_bar.open = True
+            page.update()
+
+        login_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Login / Register"),
+            content=ft.Column([
+                ft.Text("Enter a Username to Load/Create profile."),
+                dlg_username,
+                dlg_pin
+            ], height=200, tight=True),
+            actions=[
+                ft.TextButton("Cancel", on_click=close_dlg),
+                ft.ElevatedButton("Login / Create", on_click=handle_login),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.dialog = login_dialog
+        login_dialog.open = True
+        page.update()
+
+    def handle_logout(e):
+        current_user["is_logged_in"] = False
+        current_user["username"] = None
+        current_user["data"] = DEFAULT_VALUES.copy()
+        
+        login_btn.text = "Login"
+        
+        # Reset UI
+        for k, ref in refs.items():
+            ref.value = str(DEFAULT_VALUES.get(k))
+        calculate()
+        
+        page.snack_bar = ft.SnackBar(ft.Text("Logged Out"), bgcolor=ft.Colors.GREY)
+        page.snack_bar.open = True
+        page.update()
+
+    login_btn = ft.ElevatedButton("Login", icon=ft.Icons.LOGIN, on_click=show_login_dialog, color=ft.Colors.WHITE, bgcolor=ft.Colors.TEAL_700)
+    
+    # Toggle Theme
+    def toggle_theme(e):
+        page.theme_mode = ft.ThemeMode.DARK if page.theme_mode == ft.ThemeMode.LIGHT else ft.ThemeMode.LIGHT
+        e.control.icon = ft.Icons.DARK_MODE if page.theme_mode == ft.ThemeMode.LIGHT else ft.Icons.LIGHT_MODE
+        page.update()
+
+    # AppBar
+    page.appbar = ft.AppBar(
+        title=ft.Text("Salary App (Pro)"),
+        center_title=False,
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+        actions=[
+            login_btn,
+            ft.IconButton(ft.Icons.LOGOUT, tooltip="Logout", on_click=handle_logout),
+            ft.IconButton(ft.Icons.DARK_MODE, on_click=toggle_theme)
+        ]
+    )
+
+    # --- Fetch Rates Logic ---
+    def fetch_rates(e):
+        try:
+            e.control.disabled = True
+            page.update()
+            
+            url = "https://open.er-api.com/v6/latest/USD"
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            
+            if data.get("result") == "success":
+                rates = data["rates"]
+                usd_thb = rates.get("THB", 0)
+                usd_twd = rates.get("TWD", 0)
+                
+                if usd_thb and usd_twd:
+                    refs["superrich_rate_usd"].value = f"{usd_thb:.2f}"
+                    refs["cathay_rate"].value = f"{usd_twd:.2f}"
+                    twd_thb = usd_thb / usd_twd
+                    refs["superrich_rate_twd"].value = f"{twd_thb:.2f}"
+                    
+                    page.snack_bar = ft.SnackBar(ft.Text("Rates updated!"), bgcolor=ft.Colors.GREEN)
+                    calculate()
+                else:
+                     page.snack_bar = ft.SnackBar(ft.Text("Rate data missing"), bgcolor=ft.Colors.RED)
+            else:
+                page.snack_bar = ft.SnackBar(ft.Text("API Error"), bgcolor=ft.Colors.RED)
+        except Exception as ex:
+            page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), bgcolor=ft.Colors.RED)
+        finally:
+            page.snack_bar.open = True
+            e.control.disabled = False
+            page.update()
+
+
+    # --- Layout ---
+    # Hero
     hero_card = ft.Container(
         content=ft.Column([
             ft.Text("Total Estimated Income", size=14, color=ft.Colors.WHITE70),
@@ -264,130 +364,99 @@ def main(page: ft.Page):
         gradient=ft.LinearGradient(
             begin=ft.alignment.Alignment(-1, -1),
             end=ft.alignment.Alignment(1, 1),
-            colors=[ft.Colors.TEAL_400, ft.Colors.TEAL_800], # Softer Teal Gradient
+            colors=[ft.Colors.TEAL_400, ft.Colors.TEAL_800],
         ),
         padding=30,
         border_radius=20,
-        shadow=ft.BoxShadow(
-            blur_radius=20,
-            color=ft.Colors.BLUE_GREY_100,
-            offset=ft.Offset(0, 10),
-            spread_radius=0,
-        )
+        shadow=ft.BoxShadow(blur_radius=20, color=ft.Colors.BLUE_GREY_100, offset=ft.Offset(0, 10))
     )
 
-    # 2. Input Groups
     def section_header(title, icon):
         return ft.Row([
             ft.Icon(icon, color=ft.Colors.PRIMARY),
-            ft.Text(title, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.ON_SURFACE)
-        ], alignment=ft.MainAxisAlignment.START)
+            ft.Text(title, size=16, weight=ft.FontWeight.BOLD)
+        ])
 
     # Time Inputs
     time_card = ft.Card(
         elevation=2,
-        # surface_tint_color removed as not supported
         content=ft.Container(
             padding=20,
             content=ft.Column([
                 section_header("Time Inputs", ft.Icons.ACCESS_TIME_ROUNDED),
                 ft.Container(height=10),
-                ft.Row([
-                    create_input("BH Hours", "bh_hours", ft.Icons.TIMELAPSE), 
-                    create_input("BH Mins", "bh_mins")
-                ]),
-                ft.Row([
-                    create_input("EUR.AME.AUS", "p1_hours", ft.Icons.AIRPLANE_TICKET), 
-                    create_input("Mins", "p1_mins", expand=False)
-                ]),
-                ft.Row([
-                    create_input("Other regions", "p2_hours", ft.Icons.FLIGHT_TAKEOFF), 
-                    create_input("Mins", "p2_mins", expand=False)
-                ]),
+                ft.Row([create_input("BH Hours", "bh_hours", ft.Icons.TIMELAPSE), create_input("BH Mins", "bh_mins")]),
+                ft.Row([create_input("EUR.AME.AUS", "p1_hours", ft.Icons.AIRPLANE_TICKET), create_input("Mins", "p1_mins", expand=False)]),
+                ft.Row([create_input("Other regions", "p2_hours", ft.Icons.FLIGHT_TAKEOFF), create_input("Mins", "p2_mins", expand=False)]),
             ], spacing=15)
         )
     )
 
-    # Rates & Configuration
-    
-    # Currency Dropdown logic
-    dropdown_curr = ft.Dropdown(
-        label="Withdraw Currency",
-        options=[ft.dropdown.Option("USD"), ft.dropdown.Option("TWD")],
-        value=get_setting("withdrawal_currency"),
-        on_select=calculate,
-        border_radius=12,
-        filled=True,
-        height=60,
-        expand=True
-    )
-    refs["withdrawal_currency"] = dropdown_curr
-
+    # Rates Inputs
     rates_card = ft.Card(
         elevation=2,
         content=ft.Container(
             padding=20,
             content=ft.Column([
                 ft.Row([
-                    section_header("Configuration & Rates", ft.Icons.SETTINGS),
-                    ft.IconButton(ft.Icons.CLOUD_SYNC, tooltip="Update Live Rates", on_click=fetch_rates, icon_color=ft.Colors.PRIMARY)
+                    section_header("Rates & Config", ft.Icons.CURRENCY_EXCHANGE),
+                    ft.IconButton(ft.Icons.CLOUD_SYNC, on_click=fetch_rates, tooltip="Update Live Rates")
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                
                 ft.Container(height=10),
-                
-                ft.Text("Hourly Rates (Base -> Auto Calc OT)", size=12, color=ft.Colors.PRIMARY, weight=ft.FontWeight.BOLD),
-                ft.Row([create_input("Normal", "normal_rate"), create_input("OT (2.5x)", "ot_rate", read_only=True), create_input("Super OT (3.5x)", "super_ot_rate", read_only=True)]),
-                
-                ft.Divider(height=20),
-                ft.Text("Base & Transport", size=12, color=ft.Colors.PRIMARY, weight=ft.FontWeight.BOLD),
-                ft.Row([create_input("Base Salary", "base_salary", ft.Icons.ACCOUNT_BALANCE_WALLET), create_input("Allowance", "position_allowance")]),
-                ft.Row([create_input("Trip Rate", "transport_rate", ft.Icons.DIRECTIONS_CAR), create_input("Trips", "transport_trips")]),
-                
-                ft.Divider(height=20),
-                ft.Text("Currency & Exchange", size=12, color=ft.Colors.PRIMARY, weight=ft.FontWeight.BOLD),
-                ft.Row([dropdown_curr]),
-                ft.Row([create_input("Cathay (USD->TWD)", "cathay_rate"), create_input("SuperRich (USD->THB)", "superrich_rate_usd")]),
-                ft.Row([create_input("SuperRich (TWD->THB)", "superrich_rate_twd", expand=True)]),
-                
-                ft.Divider(height=20),
-                ft.Text("Per Diem Multipliers", size=12, color=ft.Colors.PRIMARY, weight=ft.FontWeight.BOLD),
-                ft.Row([create_input("Euro Zone", "per_diem_euro_mult", ft.Icons.EURO), create_input("Other Zone", "per_diem_other_mult", ft.Icons.PUBLIC)]),
+                ft.Row([create_input("Base Salary", "base_salary"), create_input("Position Allow.", "position_allowance")]),
+                ft.Divider(),
+                ft.Row([create_input("Normal Rate", "normal_rate"), create_input("Transport Rate", "transport_rate")]),
+                ft.Row([create_input("OT Rate (2.5x)", "ot_rate", read_only=True), create_input("Super OT (3.5x)", "super_ot_rate", read_only=True)]),
+                ft.Divider(),
+                ft.Row([create_input("Per Diem (Euro Mult)", "per_diem_euro_mult"), create_input("Per Diem (Other Mult)", "per_diem_other_mult")]),
+            ], spacing=15)
+        )
+    )
+    
+    # Currency Settings
+    dd_currency = ft.Dropdown(
+        label="Withdrawal Currency",
+        value=str(get_setting("withdrawal_currency")),
+        options=[ft.dropdown.Option("USD"), ft.dropdown.Option("TWD")],
+        on_change=calculate,
+        border_radius=12,
+        filled=True,
+        expand=True
+    )
+    refs["withdrawal_currency"] = dd_currency
 
-            ], spacing=10)
+    currency_card = ft.Card(
+        elevation=2,
+        content=ft.Container(
+            padding=20,
+            content=ft.Column([
+                section_header("Exchange Settings", ft.Icons.MONETIZATION_ON),
+                ft.Container(height=10),
+                ft.Row([dd_currency]),
+                ft.Row([create_input("Cathay Rate (USD->TWD)", "cathay_rate"), create_input("Transport Trips", "transport_trips")]),
+                ft.Row([create_input("SuperRich (USD->THB)", "superrich_rate_usd"), create_input("SuperRich (TWD->THB)", "superrich_rate_twd")])
+            ], spacing=15)
         )
     )
 
-    # Main Layout Assembly
-    main_layout = ft.Container(
-        content=ft.Column([
-            hero_card,
-            ft.Container(height=10),
-            time_card,
-            ft.Container(height=5),
-            rates_card,
-            ft.Container(height=20),
-            ft.Text("Salary App v1.1", size=12, color=ft.Colors.GREY_400, italic=True, text_align=ft.TextAlign.CENTER)
-        ], scroll=ft.ScrollMode.HIDDEN), # Main column
-        
-        # Centered constrain
-        width=600, 
-        padding=20,
-        alignment=ft.alignment.Alignment(0, -1)
+    # Assembly
+    page.add(
+        ft.Column(
+            [
+                hero_card,
+                time_card,
+                rates_card,
+                currency_card,
+                ft.Text("   ", size=50) # Spacer
+            ],
+            scroll=ft.ScrollMode.HIDDEN # Main scroll handled by page
+        )
     )
     
-    # Outer container for centering on screen
-    page.add(ft.Container(
-        content=main_layout,
-        alignment=ft.alignment.Alignment(0, -1),
-        expand=True
-    ))
-
-    # Initial Calc
+    # Init Calc
     calculate()
 
 if __name__ == "__main__":
-    # Web Deployment Logic
-    # Check if running in a container/server (Environment variable PORT is usually set)
     env_port = os.getenv("PORT")
     if env_port:
         ft.app(target=main, port=int(env_port))
