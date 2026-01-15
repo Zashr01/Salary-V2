@@ -3,7 +3,6 @@ import math
 import json
 import os
 import requests # Added for API
-
 # --- Configuration & Constants ---
 # --- Configuration & Constants ---
 DEFAULT_VALUES = {
@@ -28,19 +27,23 @@ DEFAULT_VALUES = {
     "position_allowance": 1000.0,
     "transport_trips": 6
 }
-
 # --- Main App ---
 def main(page: ft.Page):
-    # --- Persistence Logic (Client Side) ---
+    # --- Persistence Logic (Session Based) ---
+    # Using Session Storage to fix 'AttributeError: client_storage'
+    # Data is isolated per user session (Browser tab).
     def get_setting(key):
-        if page.client_storage.contains_key(key):
-            val = page.client_storage.get(key)
-            return val
+        try:
+            if page.session.contains_key(key):
+                return page.session.get(key)
+        except:
+            pass
         return DEFAULT_VALUES.get(key)
-
     def save_setting(key, value):
-        page.client_storage.set(key, value)
-
+        try:
+            page.session.set(key, value)
+        except:
+            pass
     # 1. Page Configuration
     page.title = "Salary App (Premium)"
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -54,12 +57,10 @@ def main(page: ft.Page):
         visual_density=ft.VisualDensity.COMFORTABLE,
         font_family="Roboto"
     )
-
     def toggle_theme(e):
         page.theme_mode = ft.ThemeMode.DARK if page.theme_mode == ft.ThemeMode.LIGHT else ft.ThemeMode.LIGHT
         e.control.icon = ft.Icons.DARK_MODE if page.theme_mode == ft.ThemeMode.LIGHT else ft.Icons.LIGHT_MODE
         page.update()
-
     page.appbar = ft.AppBar(
         title=ft.Text("Salary App (Premium)"),
         center_title=True,
@@ -68,14 +69,11 @@ def main(page: ft.Page):
             ft.IconButton(ft.Icons.DARK_MODE, on_click=toggle_theme)
         ]
     )
-
     # --- State & Refs ---
     refs = {}
-
     # Result Controls
     txt_result_total = ft.Text("0.00 THB", size=40, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
     txt_breakdown = ft.Column(spacing=2)
-
     # --- Calculation Logic ---
     def calculate(e=None):
         try:
@@ -83,7 +81,6 @@ def main(page: ft.Page):
             def val(key):
                 v = refs[key].value
                 return float(v) if v else 0.0
-
             # 1. Get Values
             bh_hours = val("bh_hours")
             bh_mins = val("bh_mins")
@@ -91,7 +88,6 @@ def main(page: ft.Page):
             p1_mins = val("p1_mins")
             p2_hours = val("p2_hours")
             p2_mins = val("p2_mins")
-
             normal_rate = val("normal_rate")
             # Enforce 2.5x and 3.5x
             ot_rate = normal_rate * 2.5
@@ -118,25 +114,21 @@ def main(page: ft.Page):
                 superrich_rate = val("superrich_rate_usd")
             else:
                 superrich_rate = val("superrich_rate_twd")
-
             # 2. Logic
             # Block Hours
             total_bh = bh_hours + (bh_mins / 60.0)
             bh_normal_hrs = min(total_bh, 70)
             bh_ot_hrs = max(min(total_bh - 70, 10), 0)
             bh_super_ot_hrs = max(total_bh - 80, 0)
-
             income_normal = bh_normal_hrs * normal_rate
             income_ot = bh_ot_hrs * ot_rate
             income_super_ot = bh_super_ot_hrs * super_ot_rate
             total_bh_income = income_normal + income_ot + income_super_ot
-
             # Per Diem
             p1_total = p1_hours + (p1_mins / 60.0)
             p2_total = p2_hours + (p2_mins / 60.0)
             total_per_diem_units = (per_diem_euro_mult * p1_total) + (per_diem_other_mult * p2_total)
             per_diem_base_usd = total_per_diem_units
-
             # Conversion
             if withdraw_currency == "TWD":
                 holding_amount = per_diem_base_usd * cathay_rate
@@ -144,13 +136,10 @@ def main(page: ft.Page):
             else:
                 holding_amount = per_diem_base_usd
                 per_diem_thb = holding_amount * superrich_rate
-
             # Other
             transport_income = transport_trips * transport_rate
-
             # Total
             grand_total_thb = total_bh_income + per_diem_thb + base_salary + position_allowance + transport_income
-
             # 3. Update UI
             txt_result_total.value = f"{grand_total_thb:,.2f} THB"
             
@@ -160,7 +149,6 @@ def main(page: ft.Page):
                     ft.Text(label, color=color, size=14),
                     ft.Text(val_str, weight=ft.FontWeight.BOLD, color=color, size=14)
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
-
             txt_breakdown.controls = [
                 breakdown_row("Block Hours Income", f"{total_bh_income:,.2f}"),
                 breakdown_row(f"Per Diem ({withdraw_currency})", f"{holding_amount:,.2f}"),
@@ -174,10 +162,8 @@ def main(page: ft.Page):
             for k, ref in refs.items():
                 if ref.value is not None:
                      save_setting(k, ref.value)
-
         except Exception as ex:
             print(f"Calc Error: {ex}")
-
     # --- API Logic ---
     def fetch_rates(e):
         try:
@@ -223,7 +209,6 @@ def main(page: ft.Page):
         finally:
             e.control.disabled = False
             page.update()
-
     # --- UI Helpers ---
     def create_input(label, key, icon=None, numeric=True, expand=True, read_only=False):
         val = get_setting(key)
@@ -243,9 +228,7 @@ def main(page: ft.Page):
         )
         refs[key] = field
         return field
-
     # --- Layout Construction ---
-
     # 1. Hero Result Section
     hero_card = ft.Container(
         content=ft.Column([
@@ -268,14 +251,12 @@ def main(page: ft.Page):
             spread_radius=0,
         )
     )
-
     # 2. Input Groups
     def section_header(title, icon):
         return ft.Row([
             ft.Icon(icon, color=ft.Colors.PRIMARY),
             ft.Text(title, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.ON_SURFACE)
         ], alignment=ft.MainAxisAlignment.START)
-
     # Time Inputs
     time_card = ft.Card(
         elevation=2,
@@ -300,7 +281,6 @@ def main(page: ft.Page):
             ], spacing=15)
         )
     )
-
     # Rates & Configuration
     
     # Currency Dropdown logic
@@ -315,7 +295,6 @@ def main(page: ft.Page):
         expand=True
     )
     refs["withdrawal_currency"] = dropdown_curr
-
     rates_card = ft.Card(
         elevation=2,
         content=ft.Container(
@@ -345,11 +324,9 @@ def main(page: ft.Page):
                 ft.Divider(height=20),
                 ft.Text("Per Diem Multipliers", size=12, color=ft.Colors.PRIMARY, weight=ft.FontWeight.BOLD),
                 ft.Row([create_input("Euro Zone", "per_diem_euro_mult", ft.Icons.EURO), create_input("Other Zone", "per_diem_other_mult", ft.Icons.PUBLIC)]),
-
             ], spacing=10)
         )
     )
-
     # Main Layout Assembly
     main_layout = ft.Container(
         content=ft.Column([
@@ -374,10 +351,8 @@ def main(page: ft.Page):
         alignment=ft.alignment.Alignment(0, -1),
         expand=True
     ))
-
     # Initial Calc
     calculate()
-
 if __name__ == "__main__":
     # Web Deployment Logic
     # Check if running in a container/server (Environment variable PORT is usually set)
