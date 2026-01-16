@@ -334,6 +334,10 @@
         <div id="tab-exchange" class="input-group">
             <h4 style="margin-top:0">Exchange Rates</h4>
             <button class="btn-update" onclick="fetchRates()">🔄 Update Live Rates</button>
+            <div style="text-align: center; margin-bottom: 15px; font-size: 0.8rem;">
+                <a href="https://www.exchangerate-api.com" target="_blank"
+                    style="color: #666; text-decoration: underline;">Source: ExchangeRate-API</a>
+            </div>
 
             <div class="row">
                 <div class="col">
@@ -491,12 +495,14 @@
                             localStorage.setItem(id, v);
                         };
 
+                        const twd_thb = usd_thb / usd_twd;
+
                         setVal("superrich_rate_usd", usd_thb.toFixed(2));
                         setVal("cathay_rate", usd_twd.toFixed(2));
-                        setVal("superrich_rate_twd", (usd_thb / usd_twd).toFixed(2));
+                        setVal("superrich_rate_twd", twd_thb.toFixed(2));
 
                         calculate();
-                        alert(`Rates Updated!\nUSD: ${usd_thb}\nTWD: ${usd_twd}`);
+                        alert(`Rates Updated (Source: ExchangeRate-API)!\n\nUSD -> THB: ${usd_thb.toFixed(2)}\nUSD -> TWD: ${usd_twd.toFixed(2)}\nTWD -> THB: ${twd_thb.toFixed(2)}`);
                     }
                 } else {
                     alert("API Error: " + JSON.stringify(data));
