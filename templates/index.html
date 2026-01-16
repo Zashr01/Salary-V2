@@ -1,16 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EVA Income</title>
-
     <!-- PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="EVA Income">
-
     <style>
         :root {
             --primary: #27ae60;
@@ -18,7 +15,6 @@
             --card-bg: #ffffff;
             --text: #333;
         }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
@@ -27,7 +23,6 @@
             color: var(--text);
             padding-bottom: 50px;
         }
-
         /* Hero Section */
         .hero {
             background: linear-gradient(135deg, #2ecc71, #27ae60);
@@ -38,25 +33,21 @@
             border-bottom-right-radius: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-
         .hero h3 {
             margin: 0;
             font-weight: normal;
             opacity: 0.9;
             font-size: 1rem;
         }
-
         .hero h1 {
             margin: 10px 0 0;
             font-size: 3rem;
             font-weight: 700;
         }
-
         .hero .currency {
             font-size: 1rem;
             opacity: 0.8;
         }
-
         /* Metrics Grid */
         .metrics {
             display: grid;
@@ -64,7 +55,6 @@
             gap: 10px;
             padding: 15px 15px 0;
         }
-
         .metric-card {
             background: rgba(255, 255, 255, 0.2);
             padding: 10px;
@@ -72,23 +62,19 @@
             text-align: center;
             backdrop-filter: blur(5px);
         }
-
         .metric-card span {
             display: block;
             font-size: 0.8rem;
             opacity: 0.9;
         }
-
         .metric-card strong {
             display: block;
             font-size: 1.1rem;
         }
-
         /* Container */
         .container {
             padding: 20px;
         }
-
         /* Tabs */
         .tabs {
             display: flex;
@@ -97,7 +83,6 @@
             border-radius: 12px;
             margin-bottom: 20px;
         }
-
         .tab {
             flex: 1;
             text-align: center;
@@ -109,13 +94,11 @@
             color: #6c757d;
             transition: all 0.2s;
         }
-
         .tab.active {
             background: white;
             color: var(--primary);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
-
         /* Inputs */
         .input-group {
             background: var(--card-bg);
@@ -126,28 +109,23 @@
             display: none;
             /* Hidden by default */
         }
-
         .input-group.active {
             display: block;
         }
-
         .row {
             display: flex;
             gap: 15px;
             margin-bottom: 15px;
         }
-
         .col {
             flex: 1;
         }
-
         label {
             display: block;
             font-size: 0.85rem;
             color: #666;
             margin-bottom: 5px;
         }
-
         input[type="number"],
         select {
             width: 100%;
@@ -158,12 +136,10 @@
             box-sizing: border-box;
             -webkit-appearance: none;
         }
-
         input:focus {
             outline: none;
             border-color: var(--primary);
         }
-
         /* Update Button */
         .btn-update {
             background: var(--primary);
@@ -177,18 +153,15 @@
             cursor: pointer;
             margin-bottom: 15px;
         }
-
         .btn-update:active {
             transform: scale(0.98);
             opacity: 0.9;
         }
-
         .divider {
             height: 1px;
             background: #eee;
             margin: 15px 0;
         }
-
         .info {
             text-align: center;
             font-size: 0.8rem;
@@ -197,14 +170,11 @@
         }
     </style>
 </head>
-
 <body>
-
     <!-- Hero -->
     <div class="hero">
         <h3>Total Estimated Income</h3>
         <h1><span id="grandControl">0.00</span> <span class="currency">THB</span></h1>
-
         <div class="metrics">
             <div class="metric-card">
                 <span>Block Hours</span>
@@ -224,7 +194,6 @@
             </div>
         </div>
     </div>
-
     <div class="container">
         <!-- Tabs -->
         <div class="tabs">
@@ -232,7 +201,6 @@
             <div class="tab" onclick="switchTab('rates', this)">💵 Rates</div>
             <div class="tab" onclick="switchTab('exchange', this)">💱 Exchange</div>
         </div>
-
         <!-- Tab 1: Time -->
         <div id="tab-time" class="input-group active">
             <h4 style="margin-top:0">Flight Hours Log</h4>
@@ -269,7 +237,6 @@
                 </div>
             </div>
         </div>
-
         <!-- Tab 2: Rates -->
         <div id="tab-rates" class="input-group">
             <h4 style="margin-top:0">Salary Config</h4>
@@ -305,12 +272,10 @@
                 </div>
             </div>
         </div>
-
         <!-- Tab 3: Exchange -->
         <div id="tab-exchange" class="input-group">
             <h4 style="margin-top:0">Exchange Rates</h4>
             <button class="btn-update" onclick="fetchRates()">🔄 Update Live Rates</button>
-
             <div class="row">
                 <div class="col">
                     <label>Withdrawal Currency</label>
@@ -320,7 +285,6 @@
                     </select>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col">
                     <label>Cathay (USD->TWD)</label>
@@ -331,7 +295,6 @@
                     <input type="number" id="transport_trips" value="6">
                 </div>
             </div>
-
             <div class="row">
                 <div class="col">
                     <label>SR (USD->THB)</label>
@@ -343,13 +306,11 @@
                 </div>
             </div>
         </div>
-
         <div class="info">
             EVA Air Income Calculator<br>
             Data saved automatically to device.
         </div>
     </div>
-
     <script>
         // --- Persistence Logic ---
         const inputs = [
@@ -358,7 +319,6 @@
             "per_diem_euro_mult", "per_diem_other_mult", "withdrawal_currency",
             "cathay_rate", "transport_trips", "superrich_rate_usd", "superrich_rate_twd"
         ];
-
         function loadData() {
             inputs.forEach(id => {
                 const stored = localStorage.getItem(id);
@@ -374,48 +334,38 @@
             });
             calculate(); // Initial Calc
         }
-
         // --- Calculation Logic ---
         function val(id) {
             const v = document.getElementById(id).value;
             return isNaN(parseFloat(v)) ? 0 : parseFloat(v);
         }
-
         function calculate() {
             // BH Income
             const bh_hours = val("bh_hours");
             const bh_mins = val("bh_mins");
             const total_bh = bh_hours + (bh_mins / 60.0);
-
             const normal_rate = val("normal_rate");
             const bh_normal_hrs = Math.min(total_bh, 70);
             const bh_ot_hrs = Math.max(Math.min(total_bh - 70, 10), 0);
             const bh_super_ot_hrs = Math.max(total_bh - 80, 0);
-
             const income_normal = bh_normal_hrs * normal_rate;
             const income_ot = bh_ot_hrs * (normal_rate * 2.5);
             const income_super_ot = bh_super_ot_hrs * (normal_rate * 3.5);
             const total_bh_income = income_normal + income_ot + income_super_ot;
-
             // Per Diem
             const p1_hours = val("p1_hours");
             const p1_mins = val("p1_mins");
             const p2_hours = val("p2_hours");
             const p2_mins = val("p2_mins");
-
             const euro_mult = val("per_diem_euro_mult");
             const other_mult = val("per_diem_other_mult");
-
             const p1_total = p1_hours + (p1_mins / 60.0);
             const p2_total = p2_hours + (p2_mins / 60.0);
-
             const holding_amount = (euro_mult * p1_total) + (other_mult * p2_total);
-
             const w_curr = document.getElementById("withdrawal_currency").value;
             const cathay = val("cathay_rate");
             const sr_usd = val("superrich_rate_usd");
             const sr_twd = val("superrich_rate_twd");
-
             let per_diem_thb = 0;
             if (w_curr === "TWD") {
                 per_diem_thb = (holding_amount * cathay) * sr_twd;
@@ -425,20 +375,16 @@
                 // if withdraw_currency == "TWD": per_diem_thb = (holding_amount * cathay_rate) * superrich_twd
                 // else: per_diem_thb = holding_amount * superrich_usd
             }
-
             // Fixed + Transport
             const base = val("base_salary");
             const pos = val("position_allowance");
             const trips = val("transport_trips");
             const t_rate = val("transport_rate");
             const t_income = trips * t_rate;
-
             // Display Calculated Rates
             document.getElementById("disp_ot_rate").value = (normal_rate * 2.5).toFixed(2);
             document.getElementById("disp_sot_rate").value = (normal_rate * 3.5).toFixed(2);
-
             const grand_total = total_bh_income + per_diem_thb + base + pos + t_income;
-
             // Update UI
             document.getElementById("grandControl").innerText = grand_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             document.getElementById("m_bh").innerText = total_bh_income.toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -446,31 +392,25 @@
             document.getElementById("m_pd_thb").innerText = per_diem_thb.toLocaleString('en-US', { maximumFractionDigits: 0 });
             document.getElementById("m_fixed").innerText = (base + pos + t_income).toLocaleString('en-US', { maximumFractionDigits: 0 });
         }
-
         // --- API & UI Utils ---
         async function fetchRates() {
             const btn = document.querySelector('.btn-update');
             const originalText = btn.innerText;
             btn.innerText = "Loading...";
-
             try {
                 const res = await fetch('/api/rates');
                 const data = await res.json();
-
                 if (data.result === 'success') {
                     const usd_thb = data.rates.THB;
                     const usd_twd = data.rates.TWD;
-
                     if (usd_thb && usd_twd) {
                         document.getElementById("superrich_rate_usd").value = usd_thb.toFixed(2);
                         document.getElementById("cathay_rate").value = usd_twd.toFixed(2);
                         document.getElementById("superrich_rate_twd").value = (usd_thb / usd_twd).toFixed(2);
-
                         // Save new rates
                         localStorage.setItem("superrich_rate_usd", usd_thb.toFixed(2));
                         localStorage.setItem("cathay_rate", usd_twd.toFixed(2));
                         localStorage.setItem("superrich_rate_twd", (usd_thb / usd_twd).toFixed(2));
-
                         calculate();
                         alert(`Rates Updated!\nUSD: ${usd_thb}\nTWD: ${usd_twd}`);
                     }
@@ -482,20 +422,16 @@
             }
             btn.innerText = originalText;
         }
-
         function switchTab(name, el) {
             // Hide all
             document.querySelectorAll('.input-group').forEach(d => d.style.display = 'none');
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-
             // Show target
             document.getElementById('tab-' + name).style.display = 'block';
             el.classList.add('active');
         }
-
         // Init action
         window.addEventListener('DOMContentLoaded', loadData);
     </script>
 </body>
-
 </html>
