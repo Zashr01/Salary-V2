@@ -72,6 +72,8 @@ if "user_id" not in st.session_state:
 if "data" not in st.session_state:
     st.session_state["data"] = DEFAULT_VALUES.copy()
 
+import datetime
+
 # --- Cookie Logic ---
 cookies = cookie_manager.get_all()
 device_id = cookies.get("device_id")
@@ -79,8 +81,12 @@ device_id = cookies.get("device_id")
 if not device_id:
     # New User
     new_id = str(uuid.uuid4())
-    cookie_manager.set("device_id", new_id, expires_at=None)
+    # Expires in 365 days
+    expire_date = datetime.datetime.now() + datetime.timedelta(days=365)
+    cookie_manager.set("device_id", new_id, expires_at=expire_date)
     st.session_state["user_id"] = new_id
+    time.sleep(0.1)
+    st.rerun()
 else:
     # Existing User
     if st.session_state["user_id"] != device_id:
