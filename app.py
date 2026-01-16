@@ -4,7 +4,6 @@ import os
 import requests
 import uuid
 import time
-import datetime
 
 # --- Configuration & Constants ---
 DEFAULT_VALUES = {
@@ -37,14 +36,33 @@ if not os.path.exists(USER_DATA_DIR):
 # --- Page Config ---
 st.set_page_config(page_title="EVA Air Income Calculator", page_icon="✈️", layout="wide")
 
-# --- PWA & Mobile Optimization ---
+# --- PWA & Persistence Script ---
+# This JS does 2 things:
+# 1. Saves 'device' param to LocalStorage (for PC persistence).
+# 2. Redirects if 'device' param is missing but exists in LocalStorage.
 st.markdown("""
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const deviceParam = params.get("device");
+    
+    if (deviceParam) {
+        // We have an ID, save it to persistent storage
+        localStorage.setItem("eva_device_id", deviceParam);
+    } else {
+        // No ID in URL, check storage
+        const storedId = localStorage.getItem("eva_device_id");
+        if (storedId) {
+            // Found old ID, reload page with it
+            window.location.search = "?device=" + storedId;
+        }
+    }
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="EVA Income">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-/* Hide Streamlit Header/Footer for App-like feel */
+/* Hide Streamlit Header/Footer */
 header {visibility: hidden;}
 footer {visibility: hidden;}
 </style>
@@ -73,22 +91,22 @@ def save_data_to_file(user_id, data):
     except Exception as e:
         pass
 
-# --- URL-Based Persistence Logic ---
-# Strategy: Use ?device=UUID in the URL. 
-# When user "Adds to Home Screen", this URL is saved.
+# --- Python Persistence Logic ---
 query_params = st.query_params
 device_id = query_params.get("device")
 
 if not device_id:
-    # New User: Generate ID and Reload Page with ID in URL
+    # No ID in URL yet. 
+    # Python relies on JS to redirect if it finds a stored ID.
+    # If JS doesn't find one (new user), we generate one here.
+    # We delay slightly to let JS run first? No, Streamlit runs backend first.
+    # We'll just generate a new one, but if JS redirects, this run will be aborted.
     new_id = str(uuid.uuid4())
     st.query_params["device"] = new_id
-    # Rerun to pick up the new param
     st.rerun()
 else:
-    # Existing User (ID in URL)
+    # ID exists in URL (either from link or JS redirect)
     if "data" not in st.session_state:
-         # Load data from file associated with this ID
          st.session_state["data"] = load_data_from_file(device_id)
 
 st.session_state["user_id"] = device_id
@@ -96,7 +114,6 @@ st.session_state["user_id"] = device_id
 # --- Helper to get values ---
 def val(key):
     v = st.session_state["data"].get(key, DEFAULT_VALUES[key])
-    # Force float for numeric types
     if isinstance(v, (int, float)) and not isinstance(v, bool):
         return float(v)
     return v
@@ -113,7 +130,6 @@ def on_change_handler():
         save_data_to_file(st.session_state["user_id"], st.session_state["data"])
 
 # --- Main UI ---
-# Header
 col_head1, col_head2 = st.columns([3, 1])
 col_head1.title("✈️ EVA Air Income")
 
@@ -178,7 +194,6 @@ m4.metric("Fixed + Transp.", f"{base_salary + pos_allowance + transport_income:,
 st.divider()
 
 # 3. INPUT SECTIONS
-# Tabs for cleaner UI on mobile
 tab1, tab2, tab3 = st.tabs(["⏱️ Time", "💵 Rates", "💱 Exchange"])
 
 with tab1:
@@ -216,7 +231,6 @@ with tab2:
 
 with tab3:
     with st.container(border=True):
-        # Update Button inside tab for convenience
         if st.button("🔄 Sync Live Rates", use_container_width=True):
             try:
                 resp = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
@@ -253,8 +267,7 @@ with tab3:
         st.number_input("SR (USD->THB)", value=val("superrich_rate_usd"), key="superrich_rate_usd", on_change=on_change_handler, step=0.1, format="%.2f")
         st.number_input("SR (TWD->THB)", value=val("superrich_rate_twd"), key="superrich_rate_twd", on_change=on_change_handler, step=0.01, format="%.2f")
 
-# Sidebar for Info
+# Sidebar
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/en/thumb/e/e4/EVA_Air_Logo.svg/1200px-EVA_Air_Logo.svg.png", width=150)
-    st.info(f"**Device ID:**\n`{st.session_state['user_id'][:8]}...`")
-    st.caption("Add this page to Home Screen to save this ID.")
+    st.info(f"**ID:** `{st.session_state['user_id'][:8]}...`")
