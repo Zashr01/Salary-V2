@@ -89,7 +89,11 @@ else:
 
 # --- Helper to get values ---
 def val(key):
-    return st.session_state["data"].get(key, DEFAULT_VALUES[key])
+    v = st.session_state["data"].get(key, DEFAULT_VALUES[key])
+    # Force float for numeric types to avoid Streamlit MixedNumericTypesError
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return float(v)
+    return v
 
 # --- Auto Save Handler ---
 def on_change_handler():
