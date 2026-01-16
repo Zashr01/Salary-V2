@@ -35,7 +35,15 @@ if not os.path.exists(USER_DATA_DIR):
     os.makedirs(USER_DATA_DIR)
 
 # --- Page Config ---
-st.set_page_config(page_title="Salary App (Pro)", page_icon="💰", layout="wide")
+st.set_page_config(page_title="EVA Air Income Calculator", page_icon="✈️", layout="wide")
+
+# --- PWA & Mobile Optimization ---
+st.markdown("""
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EVA Income">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+""", unsafe_allow_html=True)
 
 # --- Cookie Manager ---
 def get_manager():
@@ -64,7 +72,8 @@ def save_data_to_file(user_id, data):
         with open(filepath, "w") as f:
             json.dump(data, f, indent=4)
     except Exception as e:
-        st.error(f"Save Error: {e}")
+        # Silently fail or log, but don't disrupt user
+        pass
 
 # --- Initialize Session State ---
 if "user_id" not in st.session_state:
@@ -75,18 +84,26 @@ if "data" not in st.session_state:
 import datetime
 
 # --- Cookie Logic ---
-cookies = cookie_manager.get_all()
-device_id = cookies.get("device_id")
+# Add Exception Handling for Cookie Manager
+try:
+    cookies = cookie_manager.get_all()
+    device_id = cookies.get("device_id") if cookies else None
+except:
+    device_id = None
 
 if not device_id:
-    # New User
-    new_id = str(uuid.uuid4())
-    # Expires in 365 days
-    expire_date = datetime.datetime.now() + datetime.timedelta(days=365)
-    cookie_manager.set("device_id", new_id, expires_at=expire_date)
-    st.session_state["user_id"] = new_id
-    time.sleep(0.1)
-    st.rerun()
+    try:
+        # New User
+        new_id = str(uuid.uuid4())
+        # Expires in 365 days
+        expire_date = datetime.datetime.now() + datetime.timedelta(days=365)
+        cookie_manager.set("device_id", new_id, expires_at=expire_date)
+        st.session_state["user_id"] = new_id
+        time.sleep(0.1)
+        st.rerun()
+    except:
+        # Fallback if cookies disabled
+        pass
 else:
     # Existing User
     if st.session_state["user_id"] != device_id:
@@ -96,7 +113,6 @@ else:
 # --- Helper to get values ---
 def val(key):
     v = st.session_state["data"].get(key, DEFAULT_VALUES[key])
-    # Force float for numeric types to avoid Streamlit MixedNumericTypesError
     if isinstance(v, (int, float)) and not isinstance(v, bool):
         return float(v)
     return v
@@ -113,11 +129,10 @@ def on_change_handler():
         save_data_to_file(st.session_state["user_id"], st.session_state["data"])
 
 # --- Main UI ---
-st.title("💰 Salary App (Pro)")
+st.title("✈️ EVA Air Income Calculator")
 
 if st.session_state["user_id"]:
-    # 1. CALCULATE FIRST (So we can show results at top)
-    # ------------------------------------------------
+    # 1. CALCULATE FIRST
     bh_hours = val("bh_hours")
     bh_mins = val("bh_mins")
     total_bh = bh_hours + (bh_mins / 60.0)
@@ -158,6 +173,7 @@ if st.session_state["user_id"]:
     transport_rate = val("transport_rate")
     transport_income = transport_trips * transport_rate
     grand_total_thb = total_bh_income + per_diem_thb + base_salary + pos_allowance + transport_income
+
 
     # 2. HERO SECTION (Results at Top)
     # ------------------------------------------------
