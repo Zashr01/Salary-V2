@@ -220,7 +220,7 @@
                 <strong id="m_pd_thb">0</strong>
             </div>
             <div class="metric-card">
-                <span>Fixed + Transp.</span>
+                <span>Basic + Transp. - Deduct.</span>
                 <strong id="m_fixed">0</strong>
             </div>
         </div>
@@ -293,6 +293,42 @@
                 </div>
             </div>
             <div class="divider"></div>
+
+            <!-- Deductions Section -->
+            <h4 style="margin-top:0; color:#e74c3c;">Deductions</h4>
+            <div class="row">
+                <div class="col">
+                    <label>SOC-SEC</label>
+                    <input type="number" id="deduct_soc_sec" value="750" inputmode="decimal"
+                        style="color:#e74c3c; border-color: #fadbd8;">
+                </div>
+                <div class="col">
+                    <label>EMP-CONTR</label>
+                    <input type="number" id="deduct_emp_contr" value="835" inputmode="decimal"
+                        style="color:#e74c3c; border-color: #fadbd8;">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <label>MISCELLANEOUS</label>
+                    <input type="number" id="deduct_misc" value="0" inputmode="decimal"
+                        style="color:#e74c3c; border-color: #fadbd8;">
+                </div>
+                <div class="col">
+                    <label>OTHER</label>
+                    <input type="number" id="deduct_other" value="0" inputmode="decimal"
+                        style="color:#e74c3c; border-color: #fadbd8;">
+                </div>
+            </div>
+            <div class="row" style="background: #fadbd8; padding: 10px; border-radius: 8px;">
+                <div class="col">
+                    <label>Total Deduction</label>
+                    <input type="text" id="disp_total_deduct" disabled
+                        style="background: #f2d7d5; color: #c0392b; font-weight:bold;">
+                </div>
+            </div>
+
+            <div class="divider"></div>
             <div class="row">
                 <div class="col">
                     <label>Normal Rate</label>
@@ -320,7 +356,7 @@
 
             <div class="row">
                 <div class="col">
-                    <label>Per Diem (Euro)</label>
+                    <label>Per Diem (EU/AME/AUS)</label>
                     <input type="number" id="per_diem_euro_mult" value="4.0" step="0.1" inputmode="decimal">
                 </div>
                 <div class="col">
@@ -377,7 +413,8 @@
             "bh_hours", "bh_mins", "p1_hours", "p1_mins", "p2_hours", "p2_mins",
             "base_salary", "position_allowance", "normal_rate", "transport_rate",
             "per_diem_euro_mult", "per_diem_other_mult", "withdrawal_currency",
-            "cathay_rate", "transport_trips", "superrich_rate_usd", "superrich_rate_twd"
+            "cathay_rate", "transport_trips", "superrich_rate_usd", "superrich_rate_twd",
+            "deduct_soc_sec", "deduct_emp_contr", "deduct_misc", "deduct_other"
         ];
 
         function loadData() {
@@ -404,6 +441,8 @@
             const el = document.getElementById(id);
             if (!el) return 0;
             const v = el.value;
+            // Handle blank string
+            if (v.trim() === "") return 0;
             return isNaN(parseFloat(v)) ? 0 : parseFloat(v);
         }
 
@@ -457,13 +496,26 @@
             const t_rate = val("transport_rate");
             const t_income = trips * t_rate;
 
+            // Deductions
+            const d_soc = val("deduct_soc_sec");
+            const d_emp = val("deduct_emp_contr");
+            const d_misc = val("deduct_misc");
+            const d_other = val("deduct_other");
+            const total_deduct = d_soc + d_emp + d_misc + d_other;
+
+            // Show total deduction
+            const el_td = document.getElementById("disp_total_deduct");
+            if (el_td) el_td.value = total_deduct.toLocaleString('en-US');
+
             // Display Calculated Rates safely
             const el_ot = document.getElementById("disp_ot_rate");
             const el_sot = document.getElementById("disp_sot_rate");
             if (el_ot) el_ot.value = (normal_rate * 2.5).toFixed(2);
             if (el_sot) el_sot.value = (normal_rate * 3.5).toFixed(2);
 
-            const grand_total = total_bh_income + per_diem_thb + base + pos + t_income;
+            // Grand Total (Subtract Deductions)
+            const grand_total = total_bh_income + per_diem_thb + base + pos + t_income - total_deduct;
+            const fixed_net = (base + pos + t_income) - total_deduct;
 
             // Update UI safely
             const setObjText = (id, txt) => { const e = document.getElementById(id); if (e) e.innerText = txt; };
@@ -471,7 +523,7 @@
             setObjText("m_bh", total_bh_income.toLocaleString('en-US', { maximumFractionDigits: 0 }));
             setObjText("m_pd_loc", holding_amount.toLocaleString('en-US', { maximumFractionDigits: 0 }));
             setObjText("m_pd_thb", per_diem_thb.toLocaleString('en-US', { maximumFractionDigits: 0 }));
-            setObjText("m_fixed", (base + pos + t_income).toLocaleString('en-US', { maximumFractionDigits: 0 }));
+            setObjText("m_fixed", fixed_net.toLocaleString('en-US', { maximumFractionDigits: 0 }));
         }
 
         // --- API & UI Utils ---
